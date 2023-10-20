@@ -1,0 +1,4 @@
+(executable
+ (public_name OChord)
+ (name main)
+ (libraries OChord angstrom str))
