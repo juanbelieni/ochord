@@ -19,13 +19,11 @@ let note : Note.t t =
   <|> note_name
 
 let third : Chord.interval t =
-  char 'M'
-  <|> (char 'm'
-      <* (peek_char >>= function
-          | Some 'a' -> fail ""
-          | c -> return c))
+  char 'm'
+  <* (peek_char >>= function
+      | Some 'a' -> fail ""
+      | c -> return c)
   >>| (function
-        | 'M' -> Chord.MajorThird
         | 'm' -> Chord.MinorThird
         | c -> failwith ("Unexpected char: " ^ Char.escaped c))
   <|> return Chord.MajorThird
@@ -39,12 +37,15 @@ let fifth : Chord.interval t =
   <* char ')' <|> return Chord.PerfectFifth
 
 let seventh : Chord.interval option t =
-  string "6" <|> string "7M" <|> string "7" <|> string "maj7"
+  string "6" <|> string "7M" <|> string "M7" <|> string "7" <|> string "maj7"
+  <|> string "Maj7"
   >>| (function
         | "6" -> Some Chord.Sixth
         | "7" -> Some Chord.MinorSeventh
         | "7M" -> Some Chord.MajorSeventh
+        | "M7" -> Some Chord.MajorSeventh
         | "maj7" -> Some Chord.MajorSeventh
+        | "Maj7" -> Some Chord.MajorSeventh
         | str -> failwith ("Unexpected string: " ^ str))
   <|> return None
 
