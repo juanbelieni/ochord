@@ -28,7 +28,7 @@ The chord expression can be specified:
 
 ## License
 
-This project is distributed under the [MIT License](LICENSE.txt).
+This project is distributed under the [MIT License](LICENSE.md).
 
 ## Piano
 
