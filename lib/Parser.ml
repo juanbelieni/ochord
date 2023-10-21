@@ -48,10 +48,30 @@ let seventh : Chord.interval option t =
         | str -> failwith ("Unexpected string: " ^ str))
   <|> return None
 
+let params =
+  char '['
+  *> (sep_by (char ',')
+        (lift3
+           (fun name _ value ->
+             ( String.of_seq @@ List.to_seq name,
+               String.of_seq @@ List.to_seq value ))
+           (many1 (not_char '='))
+           (char '=')
+           (many1 (satisfy (fun c -> c <> ',' && c <> ']'))))
+     <* char ']')
+  >>| fun list ->
+  List.fold_left
+    (fun params param : Chord.params ->
+      match param with
+      | "o", str -> { params with octave = int_of_string str }
+      | "r", str -> { params with root_octave = int_of_string str }
+      | name, _ -> failwith ("Unexpected chord param: " ^ name))
+    Chord.default_params list
+
 let chord : Chord.t t =
-  lift4
-    (fun root third fifth seventh : Chord.t ->
-      { root; intervals = third :: fifth :: Option.to_list seventh })
-    note third fifth seventh
+  (fun root third fifth seventh params : Chord.t ->
+    { root; intervals = third :: fifth :: Option.to_list seventh; params })
+  <$> note <*> third <*> fifth <*> seventh
+  <*> (params <|> return Chord.default_params)
 
 let parse str = parse_string ~consume:Consume.All chord str
