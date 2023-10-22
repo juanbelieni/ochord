@@ -51,7 +51,7 @@ let to_string { root; intervals; params } =
   | 0 -> ""
   | o -> Format.sprintf "[o=%d]" o
 
-let notes { root; intervals; params } : (Note.t * int) list =
+let get_notes { root; intervals; params } : (Note.t * int) list =
   let rec sharp_n note n =
     match (note, n) with
     | note, 0 -> note

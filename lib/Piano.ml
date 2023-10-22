@@ -36,25 +36,31 @@ let _concat_octaves piano =
   |> Str.global_replace (Str.regexp "B    C") "B   C"
 
 let generate_from_notes (notes : (Note.t * int) list) =
-  let rec generate notes octave piano =
+  let rec generate notes octave piano : string =
     match notes with
-    | (note, octave') :: notes' ->
-        let piano, octave =
-          if octave' > octave then
-            ( List.combine
+    | [] -> piano |> _clean_piano |> _concat_octaves
+    | _ ->
+        let octave_notes, other_notes =
+          List.partition (fun (_, note_octave) -> note_octave = octave) notes
+        in
+        let piano =
+          match piano with
+          | "" -> _piano_octave
+          | _ ->
+              List.combine
                 (_clean_piano piano |> String.split_on_char '\n')
                 (_piano_octave |> String.split_on_char '\n')
               |> List.map (fun (s1, s2) -> s1 ^ s2)
-              |> String.concat "\n",
-              octave + 1 )
-          else (piano, octave)
+              |> String.concat "\n"
         in
-        if octave = octave' then
-          generate notes' octave
-            (Str.global_replace
-               (Str.regexp (Char.escaped (_piano_char_from_note note)))
-               "⣿" piano)
-        else generate notes octave piano
-    | [] -> piano |> _clean_piano |> _concat_octaves
+        let piano =
+          List.fold_left
+            (fun piano (note, _) ->
+              Str.global_replace
+                (Str.regexp @@ Char.escaped @@ _piano_char_from_note note)
+                "⣿" piano)
+            piano octave_notes
+        in
+        generate other_notes (octave + 1) piano
   in
-  generate notes 0 _piano_octave
+  generate notes 0 ""

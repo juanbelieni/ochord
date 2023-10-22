@@ -75,4 +75,18 @@ let chord : Chord.t t =
   <$> note <*> third <*> fifth <*> seventh
   <*> (params <|> return Chord.default_params)
 
-let parse str = parse_string ~consume:Consume.All chord str
+type expression =
+  | Chord of Chord.t
+  | Union of expression list
+
+let withespace = many @@ char ' '
+
+let expression : expression t =
+  sep_by (withespace *> char '+' <* withespace) chord >>| fun chords ->
+  Union (List.map (fun chord -> Chord chord) chords)
+
+let parse str = parse_string ~consume:Consume.All expression str
+
+let rec get_notes = function
+  | Chord chord -> Chord.get_notes chord
+  | Union chords -> List.concat_map (fun chord -> get_notes chord) chords
