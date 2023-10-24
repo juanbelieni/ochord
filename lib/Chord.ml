@@ -19,21 +19,18 @@ let semitones interval =
   | MinorSeventh -> 10
   | MajorSeventh -> 11
 
-type params = {
-  octave : int;
-  root_octave : int;
-}
+type params = { octave : int }
 
-let default_params = { octave = 0; root_octave = 0 }
+let default_params = { octave = 0 }
 
 type t = {
-  root : Note.t;
+  root : Note.name;
   intervals : interval list;
   params : params;
 }
 
 let to_string { root; intervals; params } =
-  Note.to_string root
+  Note.name_to_string root
   ^ List.fold_left ( ^ ) ""
       (List.map
          (function
@@ -51,16 +48,18 @@ let to_string { root; intervals; params } =
   | 0 -> ""
   | o -> Format.sprintf "[o=%d]" o
 
-let get_notes { root; intervals; params } : (Note.t * int) list =
+let get_notes { root; intervals; params } : Note.t list =
   let rec sharp_n note n =
     match (note, n) with
     | note, 0 -> note
     | note, n -> sharp_n (Note.sharp note) (n - 1)
   in
-  (root, params.root_octave)
+  let root_note : Note.t =
+    { name = root; params = { octave = params.octave } }
+  in
+  root_note
   :: List.map
        (fun interval ->
          let semitones = semitones interval in
-         ( sharp_n root semitones,
-           params.octave + Int.div (Note.list_index root + semitones) 12 ))
+         sharp_n root_note semitones)
        intervals

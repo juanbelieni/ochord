@@ -1,22 +1,21 @@
 open Angstrom
 
-let note_name =
-  choice
-    (List.map
-       (fun note -> string @@ Note.to_string @@ note)
-       [ Note.A; Note.B; Note.C; Note.D; Note.E; Note.F; Note.G ])
-  >>| fun name -> Note.from_string name
-
-let note : Note.t t =
+let note_name : Note.name t =
   lift2
-    (fun note accidental ->
-      match accidental with
-      | 'b' -> Note.flat note
-      | '#' -> Note.sharp note
-      | str -> failwith ("Unexpected accidental: " ^ Char.escaped str))
-    note_name
-    (char 'b' <|> char '#')
-  <|> note_name
+    (fun base_name accidental ->
+      let (note : Note.t) =
+        match accidental with
+        | Some 'b' -> Note.from_name base_name |> Note.flat
+        | Some '#' -> Note.from_name base_name |> Note.sharp
+        | Some c -> failwith ("Accidental not supported: " ^ Char.escaped c)
+        | None -> Note.from_name base_name
+      in
+      note.name)
+    (Note.name_list
+    |> List.map (fun name -> Note.name_to_string @@ name)
+    |> List.filter (fun name -> String.length name == 1)
+    |> List.map string |> choice >>| Note.name_from_string)
+    (option Option.none (char 'b' <|> char '#' >>| Option.some))
 
 let third : Chord.interval t =
   char 'm'
@@ -51,42 +50,56 @@ let seventh : Chord.interval option t =
 
 let params =
   char '['
-  *> (sep_by (char ',')
-        (lift3
-           (fun name _ value ->
-             ( String.of_seq @@ List.to_seq name,
-               String.of_seq @@ List.to_seq value ))
-           (many1 (not_char '='))
-           (char '=')
-           (many1 (satisfy (fun c -> c <> ',' && c <> ']'))))
-     <* char ']')
-  >>| fun list ->
-  List.fold_left
-    (fun params param : Chord.params ->
-      match param with
-      | "o", str -> { params with octave = int_of_string str }
-      | "r", str -> { params with root_octave = int_of_string str }
-      | name, _ -> failwith ("Unexpected chord param: " ^ name))
-    Chord.default_params list
+  *> sep_by (char ',')
+       (lift3
+          (fun name _ value ->
+            ( String.of_seq @@ List.to_seq name,
+              String.of_seq @@ List.to_seq value ))
+          (many1 (not_char '='))
+          (char '=')
+          (many1 (satisfy (fun c -> c <> ',' && c <> ']'))))
+  <* char ']' <|> return []
 
 let chord : Chord.t t =
   (fun root third fifth seventh params : Chord.t ->
     { root; intervals = third :: fifth :: Option.to_list seventh; params })
-  <$> note <*> third <*> fifth <*> seventh
-  <*> (params <|> return Chord.default_params)
+  <$> note_name <*> third <*> fifth <*> seventh
+  <*> ( params >>| fun list ->
+        List.fold_left
+          (fun _params param : Chord.params ->
+            match param with
+            | "o", str -> { octave = int_of_string str }
+            | name, _ -> failwith ("Unexpected chord param: " ^ name))
+          Chord.default_params list )
+
+let note : Note.t t =
+  (fun note_name (params : Note.params) : Note.t ->
+    { name = note_name; params })
+  <$> char '.' *> note_name
+  <*> ( params >>| fun list ->
+        List.fold_left
+          (fun _params param : Note.params ->
+            match param with
+            | "o", str -> { octave = int_of_string str }
+            | name, _ -> failwith ("Unexpected chord param: " ^ name))
+          Note.default_params list )
 
 type expression =
+  | Note of Note.t
   | Chord of Chord.t
   | Union of expression list
 
 let withespace = many @@ char ' '
 
 let expression : expression t =
-  sep_by (withespace *> char '+' <* withespace) chord >>| fun chords ->
-  Union (List.map (fun chord -> Chord chord) chords)
+  sep_by
+    (withespace *> char '+' <* withespace)
+    (chord >>| (fun chord -> Chord chord) <|> (note >>| fun note -> Note note))
+  >>| fun exprs -> Union exprs
 
 let parse str = parse_string ~consume:Consume.All expression str
 
 let rec get_notes = function
+  | Note note -> [ note ]
   | Chord chord -> Chord.get_notes chord
-  | Union chords -> List.concat_map (fun chord -> get_notes chord) chords
+  | Union exprs -> List.concat_map (fun expr -> get_notes expr) exprs

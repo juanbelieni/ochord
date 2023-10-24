@@ -35,13 +35,13 @@ let _concat_octaves piano =
   |> Str.global_replace (Str.regexp "┘└") "┴"
   |> Str.global_replace (Str.regexp "B    C") "B   C"
 
-let generate_from_notes (notes : (Note.t * int) list) =
+let generate_from_notes notes =
   let rec generate notes octave piano : string =
     match notes with
     | [] -> piano |> _clean_piano |> _concat_octaves
     | _ ->
         let octave_notes, other_notes =
-          List.partition (fun (_, note_octave) -> note_octave = octave) notes
+          List.partition (fun (note : Note.t) -> note.params.octave = octave) notes
         in
         let piano =
           match piano with
@@ -55,9 +55,9 @@ let generate_from_notes (notes : (Note.t * int) list) =
         in
         let piano =
           List.fold_left
-            (fun piano (note, _) ->
+            (fun piano (note : Note.t) ->
               Str.global_replace
-                (Str.regexp @@ Char.escaped @@ _piano_char_from_note note)
+                (Str.regexp @@ Char.escaped @@ _piano_char_from_note note.name)
                 "⣿" piano)
             piano octave_notes
         in
