@@ -7,6 +7,9 @@ type interval =
   | Sixth
   | MinorSeventh
   | MajorSeventh
+  | MinorNinth
+  | Ninth
+  | AugmentedNinth
 
 let semitones interval =
   match interval with
@@ -18,6 +21,9 @@ let semitones interval =
   | Sixth -> 9
   | MinorSeventh -> 10
   | MajorSeventh -> 11
+  | MinorNinth -> 13
+  | Ninth -> 14
+  | AugmentedNinth -> 15
 
 type params = { octave : int }
 
@@ -41,7 +47,8 @@ let to_string { root; intervals; params } =
            | AugmentedFifth -> "(#5)"
            | Sixth -> "6"
            | MinorSeventh -> "7"
-           | MajorSeventh -> "7M")
+           | MajorSeventh -> "7M"
+           | _ -> "")
          intervals)
   ^
   match params.octave with

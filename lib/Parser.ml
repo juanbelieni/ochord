@@ -27,26 +27,22 @@ let third : Chord.interval t =
         | c -> failwith ("Unexpected char: " ^ Char.escaped c))
   <|> return Chord.MajorThird
 
-let fifth : Chord.interval t =
-  char '('
-  *> (string "b5" <|> string "#5" >>| function
-      | "b5" -> Chord.DiminishedFifth
-      | "#5" -> Chord.AugmentedFifth
-      | str -> failwith ("Unexpected string: " ^ str))
-  <* char ')' <|> return Chord.PerfectFifth
+let fifth =
+  string "b5" *> return [ Chord.DiminishedFifth ]
+  <|> string "#5" *> return [ Chord.AugmentedFifth ]
 
-let seventh : Chord.interval option t =
-  string "6" <|> string "7M" <|> string "M7" <|> string "7" <|> string "maj7"
-  <|> string "Maj7"
-  >>| (function
-        | "6" -> Some Chord.Sixth
-        | "7" -> Some Chord.MinorSeventh
-        | "7M" -> Some Chord.MajorSeventh
-        | "M7" -> Some Chord.MajorSeventh
-        | "maj7" -> Some Chord.MajorSeventh
-        | "Maj7" -> Some Chord.MajorSeventh
-        | str -> failwith ("Unexpected string: " ^ str))
-  <|> return None
+let seventh =
+  string "6" *> return [ Chord.Sixth ]
+  <|> string "7" *> return [ Chord.MinorSeventh ]
+  <|> string "7M" *> return [ Chord.MajorSeventh ]
+  <|> string "M7" *> return [ Chord.MajorSeventh ]
+  <|> string "maj7" *> return [ Chord.MajorSeventh ]
+  <|> string "Maj7" *> return [ Chord.MajorSeventh ]
+  <|> string "9" *> return [ Chord.MinorSeventh; Chord.Ninth ]
+
+let ninth =
+  string "b9" *> return [ Chord.MinorNinth ]
+  <|> string "#9" *> return [ Chord.MinorNinth ]
 
 let params =
   char '['
@@ -61,9 +57,12 @@ let params =
   <* char ']' <|> return []
 
 let chord : Chord.t t =
-  (fun root third fifth seventh params : Chord.t ->
-    { root; intervals = third :: fifth :: Option.to_list seventh; params })
-  <$> note_name <*> third <*> fifth <*> seventh
+  (fun root third seventh fifth ninth params : Chord.t ->
+    { root; intervals = third :: List.concat [ seventh; fifth; ninth ]; params })
+  <$> note_name <*> third
+  <*> (seventh <|> return [])
+  <*> (char '(' *> fifth <* char ')' <|> return [ Chord.PerfectFifth ])
+  <*> (char '(' *> ninth <* char ')' <|> return [])
   <*> ( params >>| fun list ->
         List.fold_left
           (fun _params param : Chord.params ->
@@ -89,7 +88,10 @@ type expression =
   | Chord of Chord.t
   | Union of expression list
 
-let withespace = many @@ char ' '
+let withespace =
+  skip_while (function
+    | '\x20' | '\x0a' | '\x0d' | '\x09' -> true
+    | _ -> false)
 
 let expression : expression t =
   sep_by
